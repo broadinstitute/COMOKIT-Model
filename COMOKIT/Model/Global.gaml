@@ -83,7 +83,9 @@ global {
 		}
 		
 		total_number_individual <- length(Individual);
-
+		
+        write "Create contact file";
+        save ("START SIMULATION") to: "contact_data.txt" type: "text" rewrite: true;
 	}
 
 

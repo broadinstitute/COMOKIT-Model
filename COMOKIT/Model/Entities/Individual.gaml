@@ -67,6 +67,13 @@ species Individual parent: BiologicalEntity schedules: shuffle(Individual where 
 	//Bool to consider if the individual is outside of the commune
 	bool is_outside <- false;
 	
+	
+	//#############################################################
+	//Individual-level Models
+	//#############################################################	
+	//List of contacts of the individual in the last cycle
+	list<Individual> contacts;	
+	
 	//#############################################################
 	//Agenda and activities attributes
 	//#############################################################
@@ -272,14 +279,19 @@ species Individual parent: BiologicalEntity schedules: shuffle(Individual where 
 		}
 		
 		//Perform human to human transmission
+		contacts <- [];		
 		if allow_transmission_human {
 			//If the Individual is at home, perform transmission on the household level with a higher factor
 			if (is_at_home) {
-				float proba <- contact_rate*reduction_factor;
+				float proba <- contact_rate*reduction_factor;				
+				list<Individual> new_contacts <- relatives where (each.is_at_home and (each.state = susceptible));				
+				contacts <<+ new_contacts;				
 				ask relatives where (each.is_at_home and flip(proba) and (each.state = susceptible)) {
 		 			do define_new_case;
 				}
 				if (current_place.nb_households > 1) {
+				    list<Individual> new_contacts <- current_place.individuals where (each.state = susceptible);
+				    contacts <<+ new_contacts;				    					
 					proba <- proba * reduction_coeff_all_buildings_inhabitants;
 					ask current_place.individuals where (flip(proba) and (each.state = susceptible))
 			 		{
@@ -300,14 +312,33 @@ species Individual parent: BiologicalEntity schedules: shuffle(Individual where 
 					do define_new_case;
 				}
 				
+				list<Individual> new_contacts <- activity_fellows where (each.state = susceptible);
+				if (species(last_activity) != Activity) {
+					new_contacts <- new_contacts where (each.current_place = current_place); 
+				}				
+				
 				//Perform slightly reduced transmission with people not being involved in the activity but still being present
 				proba <- proba * reduction_coeff_all_buildings_individuals;
+				new_contacts <<+ current_place.individuals where (each.state = susceptible);				
 				ask current_place.individuals where (flip(proba) and (each.state = susceptible))
 		 		{
 					do define_new_case;
 		 		}
+		 		contacts <<+ new_contacts;
 		 	}
 		}
+		
+		float probi <- 10.0 / total_number_of_infected;
+		//Save new contacts
+		//https://github.com/gama-platform/gama/wiki/DefiningExportFiles
+		//https://github.com/gama-platform/gama/wiki/Syntax-models-Lists
+		//https://gama-platform.github.io/wiki/Statements#save				
+		if flip(probi) {
+            loop contact over: contacts {
+                string day <- string(int((current_date - starting_date) /  #day));
+                save ("Day" + day + "-Cycle" + string(cycle) + "="  + self.name + ":" + contact.location + "->" + contact.name + ":" + contact.location) to: "contact_data.txt" type: "text" rewrite: false;
+			}			
+		}		
 	}
 	
 
