@@ -1,0 +1,4 @@
+need covariate data for all contacts..
+day, cycle -> all contacts between individuals..
+Day3, Cycle6, Individual8926, Y -0.0 => Individual92, X -1.0
+
