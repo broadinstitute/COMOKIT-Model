@@ -90,7 +90,6 @@ global {
 		save ("day,cycle,susceptible,latent,infected,recovered,dead") to: "infected_number.txt" type: "text" rewrite: true;
 		
 		save ("parameter,value") to: "parameter_values.txt" type: "text" rewrite: true;
-		save ("A0,value") to: "parameter_values.txt" type: "text" rewrite: true;
 		save ("A0," + string(A0)) to: "parameter_values.txt" type: "text" rewrite: false;
 		save ("A1," + string(A1)) to: "parameter_values.txt" type: "text" rewrite: false;
 		save ("B0," + string(B0)) to: "parameter_values.txt" type: "text" rewrite: false;
