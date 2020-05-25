@@ -15,16 +15,22 @@ global {
 	float subset_probability <- 1.0; // for taking subset of all the contacts being saved for parameter estimation
 
     // Par set 1
-	float A0<-0.2; // should be low 
-	float A1<-2.0; // should be high according to the importance of covariate.
-	float B0<-0.2; // only considering 2 covariates as of now for both infectivity and succeptibility
-	float B1<-2.0;
+//	float A0<-0.2; // should be low 
+//	float A1<-2.0; // should be high according to the importance of covariate.
+//	float B0<-0.2; // only considering 2 covariates as of now for both infectivity and succeptibility
+//	float B1<-2.0;
 
     // Par set 2
 //	float A0<-0.5; // should be low 
 //	float A1<-1.5; // should be high according to the importance of covariate.
 //	float B0<-0.5; // only considering 2 covariates as of now for both infectivity and succeptibility
 //	float B1<-0.8;
+
+    // Par set 3
+	float A0<-1.0; // should be low 
+	float A1<-2.0; // should be high according to the importance of covariate.
+	float B0<-1.0; // only considering 2 covariates as of now for both infectivity and succeptibility
+	float B1<-1.0;
 	
 	//Epidemiological status of the individual
 	string susceptible <- "S";
