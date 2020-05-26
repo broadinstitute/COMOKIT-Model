@@ -15,23 +15,36 @@ global {
 	float subset_probability <- 1.0; // for taking subset of all the contacts being saved for parameter estimation
 
     // Par set 1
-//	float A0<-0.2; // should be low 
-//	float A1<-2.0; // should be high according to the importance of covariate.
-//	float B0<-0.2; // only considering 2 covariates as of now for both infectivity and succeptibility
+//	float A0<-0.2;
+//	float A1<-2.0;
+//	float B0<-0.2;
 //	float B1<-2.0;
+//	float eA0<-0.3;
+//	float eA1<-2.3;
+//	float eB0<-0.18;
+//	float eB1<-2.0;
 
     // Par set 2
-	float A0<-0.5; // should be low 
-	float A1<-1.5; // should be high according to the importance of covariate.
-	float B0<-0.5; // only considering 2 covariates as of now for both infectivity and succeptibility
-	float B1<-0.8;
+//	float A0<-0.5; 
+//	float A1<-1.5;
+//	float B0<-0.5;
+//	float B1<-0.8;
+//	float eA0<-0.4; 
+//	float eA1<-1.3;
+//	float eB0<-0.65;
+//	float eB1<-0.43;
 
     // Par set 3
-//	float A0<-1.0; // should be low 
-//	float A1<-2.0; // should be high according to the importance of covariate.
-//	float B0<-1.0; // only considering 2 covariates as of now for both infectivity and succeptibility
-//	float B1<-1.0;
+	float A0<-1.0; 
+	float A1<-2.0;
+	float B0<-1.0;
+	float B1<-1.0;
+	float eA0<-1.3; 
+	float eA1<-3.1;
+	float eB0<-0.7;
+	float eB1<-1.1;
 	
+
 	//Epidemiological status of the individual
 	string susceptible <- "S";
 	string latent <- "L";

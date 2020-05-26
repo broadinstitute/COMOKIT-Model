@@ -33,6 +33,8 @@ global {
 	float step<-6#h;
 	date starting_date <- date([2020,3,2]);
 	
+	float inf_prevalence <- 0.0;
+	
 	int num_infected_init <- 10; //number of infected individuals at the initialization of the simulation
 	int num_recovered_init <- 0;
 

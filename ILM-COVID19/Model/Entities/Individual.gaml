@@ -28,20 +28,25 @@ global
 species Individual schedules: shuffle(Individual where (each.status != dead)){
 	// app based model. only considering 2 covariates as of now. Can be expanded to more easily.
 	float susceptibility <- get_susceptibility();
+	float estimated_susceptibility <- get_estimated_susceptibility();
+	
 	float infectivity;
+	float estimated_infectivity;
+	
 	bool has_preexisting_condition;
 	float X <- ((65<age) or has_preexisting_condition) ? 1.0 :0.0;
 	float Y <- 0.0;	
 	int plen <- 14 * 4;
 	list<float> noninf_prob <- list_with(plen, 1.0);
 	float inf_risk <- 0.0;
+	list<float> inf_risk_list <- list_with(plen, 0.0);
 	
 	// Symptoms predictive of COVID-19:
 	// https://www.nature.com/articles/s41591-020-0916-2
     float smell_and_taste_loss <- 0.0;
     float cough <- 0.0;
-    float fatigue <- 0.0;      
-    float skipped_meals <- 0.0;	
+    float fatigue <- 0.0;
+    float skipped_meals <- 0.0;
 	
 	//#############################################################
 	//App based model functions
@@ -49,6 +54,10 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	//Returns the susceptibility of the Individual
 	float get_susceptibility{
 		float individual_susceptibility <- A0 + A1*X;
+		return individual_susceptibility;
+	}
+	float get_estimated_susceptibility {
+		float individual_susceptibility <- eA0 + eA1*X;
 		return individual_susceptibility;
 	}
 	//Age of the individual
@@ -180,20 +189,23 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 			//infectivity = b0 + b1 * y;
 			Y <- 1.0;
 			infectivity <- B0 + B1;
+			estimated_infectivity <- eB0 + eB1; 
 			
             // Symptoms for positive cases (US)
             smell_and_taste_loss <- flip(0.67) ? 1.0 : 0.0;
             cough <- flip(0.45) ? 1.0 : 0.0;
             fatigue <- flip(0.23) ? 1.0 : 0.0;
-            skipped_meals <- flip(0.47) ? 1.0 : 0.0;			
+            skipped_meals <- flip(0.47) ? 1.0 : 0.0;
 		}
 		else if ([asymptomatic,presymptomatic,latent] contains status){ // asymptomatic,latent and presymptomatic people can still transmit.
 			Y <- 0.0;
 			infectivity <- B0;
+			estimated_infectivity <- eB0;
 		}
 		else{
 			Y <- 0.0;
 			infectivity <- 0.0;
+			estimated_infectivity <- 0.0;
 		}
 	}
 	
@@ -267,8 +279,11 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	  // https://www.nature.com/articles/s41591-020-0916-2
 	  float x <- - 1.32 - 0.01 * age + 0.44 * sex + 1.75 * smell_and_taste_loss + 0.31 * cough + 0.49 * fatigue + 0.39 * skipped_meals;	
 	  float inf_pred <- 1/(1+exp(-x));
-	  float inf_prev <- 0.25;
-	  float rs <- inf_pred / inf_prev;
+	  float inf_prev <- max(0.2, inf_prevalence);
+	  float rs <- 1.0;
+	  if (0 < inf_prev) {
+	    rs <- inf_pred / inf_prev;
+	  }
 		
       inf_risk <- 0.0;
       
@@ -284,11 +299,15 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	     
 //	  }
 
-      inf_risk <- rs * inf_risk;
+      inf_risk <- min(1.0, rs * inf_risk);
+      
+      // Shift risks one entry to the left and add new one
+      inf_risk_list <- copy_between(inf_risk_list, 1, length(inf_risk_list));
+      inf_risk_list <<+ [inf_risk];
 		
 	  if (0 < inf_risk) {
         string day <- string(int((current_date - starting_date) / #day));
-	    save (day + "," + string(cycle) + ","  + name + "," + 
+	    save (day + "," + string(cycle) + "," + inf_prevalence + ","  + name + "," + 
 	    	  smell_and_taste_loss + "," + cough + "," + fatigue + "," + skipped_meals + "," +
 	    	  status + "," + inf_risk
 	    ) to: "infection_risk.txt" type: "text" rewrite: false;	  	
@@ -299,16 +318,20 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	  noninf_prob <<+ [1.0];
 	}
 	
+	action update_quarantine
+	{
+		
+	}
+	
 	action update_symptoms
 	{
-		if status = susceptible {
-	      // Re-assign again in each cycle only for susceptibles
-	      		
+		if [susceptible, latent, asymptomatic, presymptomatic] contains status {
+	      // 	
           // General symptom prevalence in the population (US)
           smell_and_taste_loss <- flip(0.12) ? 1.0 : 0.0;
           cough <- flip(0.22) ? 1.0 : 0.0;
           fatigue <- flip(0.082) ? 1.0 : 0.0;
-          skipped_meals <- flip(0.21) ? 1.0 : 0.0;	      
+          skipped_meals <- flip(0.21) ? 1.0 : 0.0;   
 		}
 	}
 	
@@ -475,8 +498,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				ask new_contacts{
 					save("asking relative - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
 					float q <- exp(-self.susceptibility * myself.infectivity);
+					float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);					
 					float transmission_proba <- 1 - q;					
-					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;				
+					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
 					save("transmission_proba for relative - "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 					if flip(transmission_proba){
 						do define_new_case;
@@ -492,9 +516,10 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 					ask new_contacts
 			 		{
 			 			save("asking individual in neighbourhood households - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-			 			float q <- exp(-self.susceptibility * myself.infectivity);			 			
+			 			float q <- exp(-self.susceptibility * myself.infectivity);
+			 			float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);
 			 			float transmission_proba <- 1 - q;
-					    self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;
+					    self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
 						save("transmission_proba for neighbourhood households- "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 						if flip(transmission_proba){
 							do define_new_case;
@@ -517,8 +542,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				ask fellows {
 					save("asking fellow from the same activity - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
 					float q <- exp(-self.susceptibility * myself.infectivity);
+					float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);
 					float transmission_proba <- 1 - q;
-					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;					
+					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
 					save("transmission_proba for fellows- "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 					if flip(transmission_proba){
 						do define_new_case;
@@ -536,8 +562,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 		 		{
 		 			save("asking indirect fellows from the same activity place- "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
 		 			float q <- exp(-self.susceptibility * myself.infectivity);
+		 			float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);
 					float transmission_proba <- 1 - q;
-					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;	
+					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
 					save("transmission_proba for indirect fellows- "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 					if flip(transmission_proba){
 						do define_new_case;
@@ -715,7 +742,8 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 //		}
 		do update_wear_mask();
 		do update_symptoms();
-		do update_risk_prob();		
+		do update_risk_prob();
+		do update_quarantine();		
 	}
 
 	aspect default {
