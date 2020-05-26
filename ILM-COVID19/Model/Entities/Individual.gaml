@@ -36,6 +36,13 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	list<float> noninf_prob <- list_with(plen, 1.0);
 	float inf_risk <- 0.0;
 	
+	// Symptoms predictive of COVID-19:
+	// https://www.nature.com/articles/s41591-020-0916-2
+    float smell_and_taste_loss <- 0.0;
+    float cough <- 0.0;
+    float fatigue <- 0.0;      
+    float skipped_meals <- 0.0;	
+	
 	//#############################################################
 	//App based model functions
 	//#############################################################
@@ -173,6 +180,12 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 			//infectivity = b0 + b1 * y;
 			Y <- 1.0;
 			infectivity <- B0 + B1;
+			
+            // Symptoms for positive cases (US)
+            smell_and_taste_loss <- flip(0.67) ? 1.0 : 0.0;
+            cough <- flip(0.45) ? 1.0 : 0.0;
+            fatigue <- flip(0.23) ? 1.0 : 0.0;
+            skipped_meals <- flip(0.47) ? 1.0 : 0.0;			
 		}
 		else if ([asymptomatic,presymptomatic,latent] contains status){ // asymptomatic,latent and presymptomatic people can still transmit.
 			Y <- 0.0;
@@ -251,26 +264,52 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	
 	action update_risk_prob
 	{
+	  // https://www.nature.com/articles/s41591-020-0916-2
+	  float x <- - 1.32 - 0.01 * age + 0.44 * sex + 1.75 * smell_and_taste_loss + 0.31 * cough + 0.49 * fatigue + 0.39 * skipped_meals;	
+	  float inf_pred <- 1/(1+exp(-x));
+	  float inf_prev <- 0.25;
+	  float rs <- inf_pred / inf_prev;
+		
       inf_risk <- 0.0;
+      
 //	  loop n from: 0 to: length(noninf_prob) - 1 {
-      int n <- length(noninf_prob) - 1;
+      
+        int n <- length(noninf_prob) - 1;
 	  	float qprod <- 1.0;
 	    loop m from: 0 to: n - 1 {
 	  	    qprod <- qprod * noninf_prob[m];
 	    }
 	    qprod <- qprod * (1 - noninf_prob[n]);
-	    inf_risk <- inf_risk + qprod; 
+	    inf_risk <- inf_risk + qprod;
+	     
 //	  }
-		
+
+      inf_risk <- rs * inf_risk;
 		
 	  if (0 < inf_risk) {
         string day <- string(int((current_date - starting_date) / #day));
-	    save (day + "," + string(cycle) + ","  + name + "," + status + "," + inf_risk) to: "infection_risk.txt" type: "text" rewrite: false;	  	
+	    save (day + "," + string(cycle) + ","  + name + "," + 
+	    	  smell_and_taste_loss + "," + cough + "," + fatigue + "," + skipped_meals + "," +
+	    	  status + "," + inf_risk
+	    ) to: "infection_risk.txt" type: "text" rewrite: false;	  	
 	  }	
 		
 	  // Shift probabilities one entry to the left
 	  noninf_prob <- copy_between(noninf_prob, 1, length(noninf_prob));
 	  noninf_prob <<+ [1.0];
+	}
+	
+	action update_symptoms
+	{
+		if status = susceptible {
+	      // Re-assign again in each cycle only for susceptibles
+	      		
+          // General symptom prevalence in the population (US)
+          smell_and_taste_loss <- flip(0.12) ? 1.0 : 0.0;
+          cough <- flip(0.22) ? 1.0 : 0.0;
+          fatigue <- flip(0.082) ? 1.0 : 0.0;
+          skipped_meals <- flip(0.21) ? 1.0 : 0.0;	      
+		}
 	}
 	
 	//Action to call to define a new case, obtaining different time to key events
@@ -675,6 +714,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 //			}
 //		}
 		do update_wear_mask();
+		do update_symptoms();
 		do update_risk_prob();		
 	}
 
