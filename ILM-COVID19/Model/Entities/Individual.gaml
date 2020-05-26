@@ -41,6 +41,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	float inf_risk <- 0.0;
 	list<float> inf_risk_list <- list_with(plen, 0.0);
 	
+	float quarantined <- 0.0;
+	int quarantine_count <- 0;
+	
 	// Symptoms predictive of COVID-19:
 	// https://www.nature.com/articles/s41591-020-0916-2
     float smell_and_taste_loss <- 0.0;
@@ -309,7 +312,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
         string day <- string(int((current_date - starting_date) / #day));
 	    save (day + "," + string(cycle) + "," + inf_prevalence + ","  + name + "," + 
 	    	  smell_and_taste_loss + "," + cough + "," + fatigue + "," + skipped_meals + "," +
-	    	  status + "," + inf_risk
+	    	  status + "," + quarantined + "," + inf_risk
 	    ) to: "infection_risk.txt" type: "text" rewrite: false;	  	
 	  }	
 		
@@ -320,7 +323,22 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	
 	action update_quarantine
 	{
-		
+		if (quaranatine_enabled) {
+			if (quarantined < 1)  {		
+	            int obs_idx <- plen - test_delay * 4 - 1;  
+	            float obs_risk <- inf_risk_list[obs_idx];		
+	            if (quarantine_risk <= obs_risk) {
+				    quarantined <- 1.0;
+				    quarantine_count <- 0;
+			    }
+			} else {				
+				quarantine_count <- quarantine_count + 1;
+				if (quarantine_time * 4 <= quarantine_count) {
+					quarantined <- 0.0;
+					quarantine_count <- 0;
+				} 
+			}			
+		}
 	}
 	
 	action update_symptoms
@@ -497,7 +515,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				contacts <<+ new_contacts;
 				ask new_contacts{
 					save("asking relative - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-					float q <- exp(-self.susceptibility * myself.infectivity);
+					float q <- exp(-self.susceptibility * (1-self.quarantined) * myself.infectivity);
 					float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);					
 					float transmission_proba <- 1 - q;					
 					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
@@ -516,7 +534,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 					ask new_contacts
 			 		{
 			 			save("asking individual in neighbourhood households - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-			 			float q <- exp(-self.susceptibility * myself.infectivity);
+			 			float q <- exp(-self.susceptibility * (1-self.quarantined) * myself.infectivity);
 			 			float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);
 			 			float transmission_proba <- 1 - q;
 					    self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
@@ -541,7 +559,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				contacts <<+ fellows;	
 				ask fellows {
 					save("asking fellow from the same activity - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-					float q <- exp(-self.susceptibility * myself.infectivity);
+					float q <- exp(-self.susceptibility * (1-self.quarantined) * myself.infectivity);
 					float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);
 					float transmission_proba <- 1 - q;
 					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
@@ -561,7 +579,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				ask new_contacts
 		 		{
 		 			save("asking indirect fellows from the same activity place- "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-		 			float q <- exp(-self.susceptibility * myself.infectivity);
+		 			float q <- exp(-self.susceptibility * (1-self.quarantined) * myself.infectivity);
 		 			float eq <- exp(-self.estimated_susceptibility * myself.estimated_infectivity);
 					float transmission_proba <- 1 - q;
 					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * eq;
