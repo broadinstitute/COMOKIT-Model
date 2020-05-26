@@ -31,7 +31,10 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 	float infectivity;
 	bool has_preexisting_condition;
 	float X <- ((65<age) or has_preexisting_condition) ? 1.0 :0.0;
-	float Y <- 0.0;
+	float Y <- 0.0;	
+	int plen <- 14 * 4;
+	list<float> noninf_prob <- list_with(plen, 1.0);
+	float inf_risk <- 0.0;
 	
 	//#############################################################
 	//App based model functions
@@ -246,6 +249,30 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 		}
 	}
 	
+	action update_risk_prob
+	{
+      inf_risk <- 0.0;
+//	  loop n from: 0 to: length(noninf_prob) - 1 {
+      int n <- length(noninf_prob) - 1;
+	  	float qprod <- 1.0;
+	    loop m from: 0 to: n - 1 {
+	  	    qprod <- qprod * noninf_prob[m];
+	    }
+	    qprod <- qprod * (1 - noninf_prob[n]);
+	    inf_risk <- inf_risk + qprod; 
+//	  }
+		
+		
+	  if (0 < inf_risk) {
+        string day <- string(int((current_date - starting_date) / #day));
+	    save (day + "," + string(cycle) + ","  + name + "," + status + "," + inf_risk) to: "infection_risk.txt" type: "text" rewrite: false;	  	
+	  }	
+		
+	  // Shift probabilities one entry to the left
+	  noninf_prob <- copy_between(noninf_prob, 1, length(noninf_prob));
+	  noninf_prob <<+ [1.0];
+	}
+	
 	//Action to call to define a new case, obtaining different time to key events
 	action define_new_case
 	{
@@ -408,7 +435,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				contacts <<+ new_contacts;
 				ask new_contacts{
 					save("asking relative - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-					float transmission_proba <- 1 - exp(-self.susceptibility * myself.infectivity);
+					float q <- exp(-self.susceptibility * myself.infectivity);
+					float transmission_proba <- 1 - q;					
+					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;				
 					save("transmission_proba for relative - "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 					if flip(transmission_proba){
 						do define_new_case;
@@ -424,7 +453,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 					ask new_contacts
 			 		{
 			 			save("asking individual in neighbourhood households - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-			 			float transmission_proba <- 1 - exp(-self.susceptibility * myself.infectivity);
+			 			float q <- exp(-self.susceptibility * myself.infectivity);			 			
+			 			float transmission_proba <- 1 - q;
+					    self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;
 						save("transmission_proba for neighbourhood households- "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 						if flip(transmission_proba){
 							do define_new_case;
@@ -446,7 +477,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				contacts <<+ fellows;	
 				ask fellows {
 					save("asking fellow from the same activity - "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-					float transmission_proba <- 1 - exp(-self.susceptibility * myself.infectivity);
+					float q <- exp(-self.susceptibility * myself.infectivity);
+					float transmission_proba <- 1 - q;
+					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;					
 					save("transmission_proba for fellows- "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 					if flip(transmission_proba){
 						do define_new_case;
@@ -463,7 +496,9 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 				ask new_contacts
 		 		{
 		 			save("asking indirect fellows from the same activity place- "+self+" transmitter - "+myself) to: "contact_data.txt" type: "text" rewrite: false;
-					float transmission_proba <- 1 - exp(-self.susceptibility * myself.infectivity);
+		 			float q <- exp(-self.susceptibility * myself.infectivity);
+					float transmission_proba <- 1 - q;
+					self.noninf_prob[plen-1] <- self.noninf_prob[plen-1] * q;	
 					save("transmission_proba for indirect fellows- "+transmission_proba) to: "contact_data.txt" type: "text" rewrite: false;
 					if flip(transmission_proba){
 						do define_new_case;
@@ -479,7 +514,8 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 //				if (flip(subset_probability)){
 					string day <- string(int((current_date - starting_date) /  #day));
 					save (day + "," + string(cycle) + ","  + contacts[i].name + "," + contacts[i].X + "," + self.name + "," + self.Y +","+
-						self.latent_time/nb_step_for_one_day+","+self.infectious_time/nb_step_for_one_day+"," +self.serial_interval/nb_step_for_one_day+","+self.time_before_hospitalisation/nb_step_for_one_day
+						self.latent_time/nb_step_for_one_day+","+self.infectious_time/nb_step_for_one_day+"," +
+						self.serial_interval/nb_step_for_one_day+","+self.time_before_hospitalisation/nb_step_for_one_day
 					) to: "contacts_data_compact.txt" type: "text" rewrite: false;
 					
 //				}
@@ -639,6 +675,7 @@ species Individual schedules: shuffle(Individual where (each.status != dead)){
 //			}
 //		}
 		do update_wear_mask();
+		do update_risk_prob();		
 	}
 
 	aspect default {

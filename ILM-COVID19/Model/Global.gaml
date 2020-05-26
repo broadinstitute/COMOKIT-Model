@@ -88,6 +88,7 @@ global {
         save ("START SIMULATION") to: "contact_data.txt" type: "text" rewrite: true;
         save ("day,cycle,contact_name,contact_covariate_X,individual_name,individual_covariate_Y,latent_time,infectious_time,serial_interval,time_before_hospitalisation") to: "contacts_data_compact.txt" type: "text" rewrite: true;
 		save ("day,cycle,susceptible,latent,infected,recovered,dead") to: "infected_number.txt" type: "text" rewrite: true;
+		save ("day,cycle,name,status,risk") to: "infection_risk.txt" type: "text" rewrite: true;
 		
 		save ("parameter,value") to: "parameter_values.txt" type: "text" rewrite: true;
 		save ("A0," + string(A0)) to: "parameter_values.txt" type: "text" rewrite: false;
