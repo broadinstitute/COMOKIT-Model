@@ -14,7 +14,7 @@ global {
 	//app based model
 	float subset_probability <- 1.0; // for taking subset of all the contacts being saved for parameter estimation
 	bool quaranatine_enabled <- true;
-	int test_delay <- 4;
+	int test_delay <- 0;
 	int quarantine_time <- 14;
 
     // Par set 1
@@ -26,7 +26,7 @@ global {
 //	float eA1<-2.3;
 //	float eB0<-0.18;
 //	float eB1<-2.0;
-//  float quarantine_risk<-0.375;
+//	float quarantine_risk<-0.18;
 
     // Par set 2
 //	float A0<-0.5; 
@@ -37,7 +37,7 @@ global {
 //	float eA1<-1.3;
 //	float eB0<-0.65;
 //	float eB1<-0.43;
-//  float quarantine_risk<-0.36;
+//	float quarantine_risk<-0.12;
 
     // Par set 3
 	float A0<-1.0; 
@@ -48,7 +48,7 @@ global {
 	float eA1<-3.1;
 	float eB0<-0.7;
 	float eB1<-1.1;
-	float quarantine_risk<-0.25;	
+	float quarantine_risk<-0.32;	
 
 	//Epidemiological status of the individual
 	string susceptible <- "S";
